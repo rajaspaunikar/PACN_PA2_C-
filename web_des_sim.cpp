@@ -77,7 +77,7 @@ enum class EventType {
     CTX_SWITCH_DONE,      // Context-switch overhead finished; service begins
     REQUEST_COMPLETE,     // Service finished on a core
     REQUEST_TIMEOUT,      // Request timed out while sitting in the wait queue
-    SIM_END               // Sentinel – stop the simulation loop
+    SIM_END               // Sentinel stop the simulation loop
 };
 
 // Service time distribution choices
@@ -746,7 +746,7 @@ int main(int argc, char* argv[]) {
 
     // ------ Print header ----------------------------------------
     std::cout << "================================================\n";
-    std::cout << " Web App DES  -- CALIBRATED to Assignment 1\n";
+    std::cout << " Web App DES\n";
     std::cout << " Cores=" << base.num_cores << " (Apache pinned to Core 0)\n";
     std::cout << " Reps =" << NUM_REPS << "\n";
     std::cout << " Service dist : EXPONENTIAL  mean=" << base.service_mean

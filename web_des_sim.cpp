@@ -19,9 +19,8 @@
 //    - Drop Rate  (requests timed out in queue, never served)
 //    - Average Core Utilization
 //
-//  Build:  g++ -O2 -std=c++17 -o web_sim web_des_sim.cpp
+//  Build:  g++ web_des_sim.cpp -o web_sim
 //  Run:    ./web_sim            (writes results.csv)
-//          ./web_sim verbose    (also prints event trace)
 // ============================================================
 
 #include <iostream>
@@ -59,8 +58,6 @@ public:
         return d(gen);
     }
 
-    // Lognormal: X = e^(mu + sigma * N(0,1))
-    // Mode = exp(mu - sigma^2)   <- can be set away from zero easily
     double lognormal(double mu, double sigma) {
         std::lognormal_distribution<double> d(mu, sigma);
         return d(gen);
@@ -145,8 +142,6 @@ struct SimParams {
     double    service_max       = 0.25;   // uniform upper bound
     double    service_const     = 0.10;   // constant service time
 
-    // Think time: lognormal (mode = exp(mu - sigma^2))
-    // With mu=1.0, sigma=0.5 -> mode ≈ 2.1s  (well above zero)
     double    think_mu          = 1.0;
     double    think_sigma       = 0.5;
 
@@ -471,8 +466,6 @@ public:
 
         Request& req = it->second;
 
-        // Only act if still in queue (not yet assigned to a core)
-        // If already assigned (ctx-sw in progress), onCtxSwDone handles it.
         if (req.assigned_core >= 0) return;
 
         if (P.verbose)

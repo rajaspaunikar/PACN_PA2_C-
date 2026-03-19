@@ -489,7 +489,6 @@ public:
               -1, req.user_id, -1);
 
         live.erase(it);
-        // Note: the ID is still sitting in wait_queue but drainQueue will skip it
     }
 
     // Try to dequeue a waiting request onto the now-free core `cid`
@@ -648,27 +647,6 @@ DataPoint runExperiment(SimParams base, int num_users,
 // ============================================================
 // Section 9: MVA – Mean Value Analysis (closed-network model)
 // ============================================================
-//
-//  We model the system as a closed queueing network with TWO stations:
-//
-//    Station 0 – "Think" station  (Infinite Server / IS)
-//                Demand Z = E[think time] = exp(mu + sigma^2/2)   [lognormal mean]
-//
-//    Station 1 – "Web Server"     (FCFS with m parallel cores)
-//                Demand D = service_mean
-//
-//  Exact MVA recurrence for m-server FCFS (Bard's approximation):
-//
-//    R(n)  = D * (1 + Q(n-1) / m)       ← residence time at server
-//    X(n)  = n / (Z + R(n))              ← system throughput
-//    Q(n)  = X(n) * R(n)                 ← mean queue (Little's law)
-//
-//  Response time reported = R(n) = residence time at server
-//  (Arrival theorem: a job sees the system as if it has n-1 others.)
-//
-//  Note: timeouts and ctx-switch overhead are NOT captured by MVA —
-//  that is precisely why simulation adds value over the analytic model.
-// ============================================================
 
 struct MVAResult {
     int    users;
@@ -710,15 +688,6 @@ std::vector<MVAResult> runMVA(double service_demand,
 // ============================================================
 // Section 10: Measured data loader
 // ============================================================
-//
-//  "Measured" data comes from Assignment 1 real system benchmarks.
-//  Load from  measured_data.csv  (format: users,avg_rt,throughput)
-//
-//  If the file is absent we generate SYNTHETIC measured data by
-//  adding calibrated Gaussian noise to the MVA curve so that the
-//  three-way comparison chart is still meaningful and demonstrable.
-//  --> Replace with your REAL measurements before final submission! <--
-// ============================================================
 
 struct MeasuredPoint {
     int    users;
@@ -749,79 +718,15 @@ std::vector<MeasuredPoint> loadMeasured(const std::string& path) {
     }
     return pts;
 }
-
-// Generate synthetic "measured" data (noise on MVA) for demo purposes.
-// Uses a fixed seed so results are reproducible.
-std::vector<MeasuredPoint> syntheticMeasured(
-        const std::vector<MVAResult>& mva, unsigned seed = 1234) {
-    std::mt19937 gen(seed);
-    // Add ±8% Gaussian noise to MVA RT, ±5% to throughput
-    std::normal_distribution<double> rt_noise(1.0, 0.08);
-    std::normal_distribution<double> tp_noise(1.0, 0.05);
-
-    std::vector<MeasuredPoint> pts;
-    for (auto& m : mva) {
-        // Also add a small systematic overhead (ctx-switch, OS jitter)
-        // that MVA doesn't model: +2ms flat + 5% of service time
-        double sys_overhead = 0.002 + 0.05 * m.rt;
-        MeasuredPoint p;
-        p.users      = m.users;
-        p.rt         = (m.rt + sys_overhead) * rt_noise(gen);
-        p.throughput = m.throughput * tp_noise(gen);
-        pts.push_back(p);
-    }
-    return pts;
-}
-
 // ============================================================
 // Section 11: Main – experiments and output
 // ============================================================
 int main(int argc, char* argv[]) {
     bool verbose = (argc > 1 && std::string(argv[1]) == "verbose");
 
-    // ============================================================
-    // CALIBRATED parameters from Assignment 1 closed-loop measurements
-    // ============================================================
-    //
-    //  System under test (from Assignment 1 slides):
-    //    Server : Apache 2 on Intel i3-7020U x4, pinned to Core 0
-    //             -> 1 effective core
-    //    Client : tsung (closed-loop, think time = 4 s)
-    //
-    //  Parameters derived from Assignment 1 data:
-    //
-    //  (1) num_cores = 1
-    //      Apache pinned to Core 0 -> single-core server.
-    //
-    //  (2) service_mean = 0.031 s  (31 ms)
-    //      From Utilization Law (slide 28):
-    //        U = X x S -> at saturation X=32 req/s, U=1
-    //        => S = 1/32 = 0.031 s
-    //      PHP busy-loop script confirmed 30-40 ms (slide 5).
-    //
-    //  (3) think_mu / think_sigma for lognormal think time with MEAN = 4 s
-    //      From Little's Law verification (slide 29):
-    //        Z = N/X - R = 100/24.5 - 0.110 = 3.97 s ≈ 4 s
-    //      Lognormal mean = exp(mu + sigma^2/2) = 4
-    //        With sigma = 0.5:
-    //          mu = ln(4) - 0.5^2/2 = 1.3863 - 0.125 = 1.2613
-    //          mode = exp(mu - sigma^2) = exp(1.0113) ≈ 2.75 s  (well above 0)
-    //
-    //  (4) timeout_min / timeout_exp_mean
-    //      Assignment 1 closed system showed ~0 drops (slide 25-26).
-    //      Use a very long timeout (>>worst observed RT of ~620ms) to reproduce
-    //      zero-drop behaviour at low/medium load.
-    //      timeout = 5.0 + Exp(5.0) s  -> mean ~10 s, far exceeds any RT seen.
-    //
-    //  (5) ctx_sw_mean = 0.002 s  (2 ms, standard OS context switch)
-    //
-    //  (6) User counts match the tsung experiment points (slides 18-26):
-    //      N = 20, 30, 40, 50, 60, 70, 80, 100, 120, 140, 150, 160
-    // ============================================================
-
     SimParams base;
     base.num_cores        = 1;          // Apache pinned to Core 0
-    base.sim_duration     = 10000.0;   // 10 000 s per replica
+    base.sim_duration     = 10000.0;   // 10000 s per replica
     base.warmup_duration  = 1000.0;    // first 1000 s discarded (Welch)
     base.service_dist     = DistType::EXPONENTIAL;
     base.service_mean     = 0.031;     // 31 ms  (from Utilisation Law)
@@ -933,18 +838,6 @@ int main(int argc, char* argv[]) {
 
     // --- Load or synthesise measured data ---
     std::vector<MeasuredPoint> measured = loadMeasured("measured_data.csv");
-    bool using_synthetic = measured.empty();
-    if (using_synthetic) {
-        std::cout << " [NOTE] measured_data.csv not found.\n"
-                  << "        Using SYNTHETIC measured data for demonstration.\n"
-                  << "        Replace with your Assignment 1 real measurements!\n\n";
-        // Only synthesise for the same user counts as our sim points
-        std::vector<MVAResult> mva_subset;
-        for (int N : USER_COUNTS) {
-            if (N >= 1 && N <= max_N) mva_subset.push_back(mva[N - 1]);
-        }
-        measured = syntheticMeasured(mva_subset);
-    }
 
     // --- Print comparison table ---
     std::cout << std::setw(6)  << "Users"
@@ -1002,9 +895,6 @@ int main(int argc, char* argv[]) {
     std::cout << "  - Simulation captures overload knee and badput more accurately\n";
     std::cout << "  - Measured data reflects real OS jitter / NIC latency overhead\n";
     std::cout << "\nComparison table written to results_comparison.csv\n";
-    if (using_synthetic)
-        std::cout << "[REMINDER] Replace synthetic measured data with real Assignment 1 data!\n";
-
     // ============================================================
     // Welch trace — run one long single pass to produce welch_trace.csv
     // ============================================================
@@ -1050,7 +940,7 @@ int main(int argc, char* argv[]) {
 
     // ------ What-If: vary number of cores -----------------------
     std::cout << "\n================================================\n";
-    std::cout << " What-If: Effect of Core Count (N=100 users)\n";
+    std::cout << "Effect of Core Count (N=100 users)\n";
     std::cout << "================================================\n";
     std::ofstream csv2("results_cores.csv");
     csv2 << "cores,avg_rt,rt_lo,rt_hi,goodput,drop_rate_pct,core_util_pct\n";
@@ -1087,7 +977,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Results written to results_cores.csv\n";
 
     std::cout << "\n================================================\n";
-    std::cout << " What-If: Effect of Service Distribution (N=100, 1 core)\n";
+    std::cout << "Effect of Service Distribution (N=100, 1 core)\n";
     std::cout << "================================================\n";
 
     struct DistCase { const char* name; DistType dt; };

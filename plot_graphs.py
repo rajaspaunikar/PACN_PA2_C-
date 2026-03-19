@@ -7,7 +7,7 @@
 #  Input files (produced by web_des_sim):
 #    results.csv             - main sim results vs users
 #    results_comparison.csv  - measured vs MVA vs sim
-#    results_cores.csv       - what-if: core count effect
+#    results_cores.csv       - core count effect
 #
 #  Output: PNG files in ./graphs/ folder
 #  Usage:  python plot_graphs.py
@@ -390,7 +390,7 @@ print("  Saved: graphs/graph00_summary_dashboard.png")
 #
 #  Shows two asymptotes:
 #    Lower bound on X:  X_upper(N) = min(N/(Z+D),  1/D)
-#    Upper bound on RT: RT_lower(N) = max(D,  N*D - Z)   [optional]
+#    Upper bound on RT: RT_lower(N) = max(D,  N*D - Z)
 #
 #  The crossing of the two throughput asymptotes is M*.
 #  Actual MVA and simulation curves are overlaid to show
@@ -528,7 +528,6 @@ ax.plot(comp["mva_x"],      comp["mva_rt_ms"],      "s--",
 ax.plot(comp["sim_x"],      comp["sim_rt_ms"],       "o-",
         color=COLORS["sim"],      label="Simulation (mean)")
 
-# Shade CI band along simulation curve (use rt_lo/hi from results.csv)
 # Map sim rt bounds to the sim_x values in comp
 sim_x_for_comp  = comp["sim_x"].values
 sim_lo_for_comp = []
@@ -561,7 +560,7 @@ ax.legend(fontsize=9)
 save("graph15_rt_vs_throughput")
 
 
-print("\n✅ All graphs saved to ./graphs/")
+print("\n All graphs saved to ./graphs/")
 print("   graph00 = summary dashboard")
 print("   graph01 = RT 3-way comparison")
 print("   graph02 = Throughput 3-way")

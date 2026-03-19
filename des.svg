@@ -1,0 +1,85 @@
+<svg width="100%" viewBox="0 0 680 535" xmlns="http://www.w3.org/2000/svg" style="font-family: sans-serif; background: black;">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- Bootstrap label -->
+<text font-size="12" fill="#888780" x="340" y="14" text-anchor="middle" dominant-baseline="central">all N users bootstrapped at t = 0</text>
+<line x1="340" y1="22" x2="340" y2="50" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+<!-- USER_THINK_END -->
+<rect x="230" y="50" width="220" height="56" rx="8" stroke-width="0.5" fill="#EEEDFE" stroke="#534AB7"/>
+<text font-size="14" font-weight="500" fill="#3C3489" x="340" y="68" text-anchor="middle" dominant-baseline="central">USER_THINK_END</text>
+<text font-size="12" fill="#534AB7" x="340" y="88" text-anchor="middle" dominant-baseline="central">assign core or enqueue</text>
+
+<!-- branch: core busy → left -->
+<path d="M310,106 L310,130 L133,130 L133,200" fill="none" stroke="#D85A30" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text font-size="12" fill="#D85A30" x="220" y="121" text-anchor="middle" dominant-baseline="central">core busy</text>
+
+<!-- branch: core free → right -->
+<path d="M370,106 L370,130 L497,130 L497,200" fill="none" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text font-size="12" fill="#1D9E75" x="440" y="121" text-anchor="middle" dominant-baseline="central">core free</text>
+
+<!-- Wait queue (dashed) -->
+<rect x="58" y="200" width="150" height="44" rx="8" stroke-width="0.5" stroke-dasharray="5 3" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text font-size="14" font-weight="500" fill="#444441" x="133" y="215" text-anchor="middle" dominant-baseline="central">Wait queue</text>
+<text font-size="12" fill="#5F5E5A" x="133" y="233" text-anchor="middle" dominant-baseline="central">request enqueued</text>
+
+<!-- Wait queue → timeout -->
+<line x1="133" y1="244" x2="133" y2="330" fill="none" stroke="#D85A30" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text font-size="12" fill="#D85A30" x="162" y="287" dominant-baseline="central">timeout fires</text>
+
+<!-- drainQueue arrow -->
+<line x1="208" y1="222" x2="392" y2="222" fill="none" stroke="#1D9E75" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+<text font-size="12" fill="#1D9E75" x="300" y="213" text-anchor="middle" dominant-baseline="central">drainQueue</text>
+
+<!-- CTX_SWITCH_DONE -->
+<rect x="392" y="200" width="210" height="56" rx="8" stroke-width="0.5" fill="#E1F5EE" stroke="#0F6E56"/>
+<text font-size="14" font-weight="500" fill="#085041" x="497" y="218" text-anchor="middle" dominant-baseline="central">CTX_SWITCH_DONE</text>
+<text font-size="12" fill="#0F6E56" x="497" y="238" text-anchor="middle" dominant-baseline="central">service begins on core</text>
+
+<!-- CTX_SWITCH_DONE → REQUEST_COMPLETE -->
+<line x1="497" y1="256" x2="497" y2="330" fill="none" stroke="#1D9E75" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text font-size="12" fill="#1D9E75" x="530" y="293" dominant-baseline="central">not expired</text>
+
+<!-- REQUEST_TIMEOUT -->
+<rect x="55" y="330" width="185" height="56" rx="8" stroke-width="0.5" fill="#FAECE7" stroke="#993C1D"/>
+<text font-size="14" font-weight="500" fill="#712B13" x="147" y="348" text-anchor="middle" dominant-baseline="central">REQUEST_TIMEOUT</text>
+<text font-size="12" fill="#993C1D" x="147" y="368" text-anchor="middle" dominant-baseline="central">request timed out</text>
+
+<!-- REQUEST_COMPLETE -->
+<rect x="392" y="330" width="210" height="56" rx="8" stroke-width="0.5" fill="#EAF3DE" stroke="#3B6D11"/>
+<text font-size="14" font-weight="500" fill="#27500A" x="497" y="348" text-anchor="middle" dominant-baseline="central">REQUEST_COMPLETE</text>
+<text font-size="12" fill="#3B6D11" x="497" y="368" text-anchor="middle" dominant-baseline="central">goodput or badput</text>
+
+<!-- Timeout → think again (left loop) -->
+<path d="M147,386 L147,420 L25,420 L25,78 L230,78" fill="none" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text font-size="12" fill="#7F77DD" x="86" y="429" text-anchor="middle" dominant-baseline="central">↻ think again</text>
+
+<!-- Complete → think again (right loop) -->
+<path d="M497,386 L497,420 L655,420 L655,78 L450,78" fill="none" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text font-size="12" fill="#7F77DD" x="576" y="429" text-anchor="middle" dominant-baseline="central">↻ think again</text>
+
+<!-- SIM_END label + arrow -->
+<text font-size="12" fill="#888780" x="340" y="452" text-anchor="middle" dominant-baseline="central">fires at t = 10 000 s</text>
+<line x1="340" y1="459" x2="340" y2="465" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+<!-- SIM_END -->
+<rect x="240" y="465" width="200" height="44" rx="8" stroke-width="0.5" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text font-size="14" font-weight="500" fill="#444441" x="340" y="480" text-anchor="middle" dominant-baseline="central">SIM_END</text>
+<text font-size="12" fill="#5F5E5A" x="340" y="498" text-anchor="middle" dominant-baseline="central">flush stats, loop exits</text>
+
+<!-- Legend -->
+<rect x="50" y="520" width="12" height="12" rx="2" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+<text font-size="12" fill="#444441" x="68" y="526" dominant-baseline="central">user event</text>
+<rect x="155" y="520" width="12" height="12" rx="2" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text font-size="12" fill="#444441" x="173" y="526" dominant-baseline="central">transition event</text>
+<rect x="282" y="520" width="12" height="12" rx="2" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.5"/>
+<text font-size="12" fill="#444441" x="300" y="526" dominant-baseline="central">completion event</text>
+<rect x="415" y="520" width="12" height="12" rx="2" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+<text font-size="12" fill="#444441" x="433" y="526" dominant-baseline="central">timeout event</text>
+<rect x="550" y="520" width="12" height="12" rx="2" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5" stroke-dasharray="4 2"/>
+<text font-size="12" fill="#444441" x="568" y="526" dominant-baseline="central">queue state</text>
+</svg>

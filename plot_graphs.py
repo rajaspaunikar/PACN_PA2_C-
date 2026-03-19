@@ -171,15 +171,38 @@ ax.legend()
 save("graph06_drop_rate")
 
 # =============================================================
-# GRAPH 7 — Core Utilization vs Users
+# GRAPH 7 — Core Utilization vs Users  (3-way: Measured / MVA / Sim)
+#
+#   All three lines derived from Utilisation Law:  U = X * D
+#     MVA:      X comes from MVA throughput, already in mva_util_pct column
+#     Measured: X comes from real tsung data, U = X_measured * D * 100
+#     Sim:      directly from simulation core_util_pct, mapped to comp N values
 # =============================================================
-fig, ax = plt.subplots(figsize=(8, 5))
-ax.plot(N_sim, sim["core_util_pct"], "o-", color=COLORS["util"], label="Core Utilization")
+D = 0.031   # service demand in seconds (calibrated from Assignment 1)
+
+fig, ax = plt.subplots(figsize=(9, 5))
+
+# -- Measured utilization via Utilisation Law (U = X * D)
+measured_util = comp["measured_x"] * D * 100
+
+# -- MVA utilization: already stored as mva_util_pct in comparison CSV
+mva_util = comp["mva_util_pct"]
+
+# -- Simulation utilization: map results.csv values to comp user counts
+sim_util_mapped = []
+for n in comp["users"]:
+    row = sim[sim["users"] == n]["core_util_pct"]
+    sim_util_mapped.append(row.values[0] if len(row) > 0 else float("nan"))
+
+ax.plot(N_comp, measured_util,   "^-",  color=COLORS["measured"], label="Measured (U = X × D)")
+ax.plot(N_comp, mva_util,        "s--", color=COLORS["mva"],      label="MVA model")
+ax.plot(N_comp, sim_util_mapped, "o-",  color=COLORS["sim"],      label="Simulation")
 ax.axhline(100, color="red", linestyle="--", linewidth=1.2, label="Saturation (100%)")
+
 ax.set_xlabel("Number of Users (N)")
-ax.set_ylabel("Avg Core Utilization (%)")
+ax.set_ylabel("Core Utilization (%)")
+ax.set_title("Graph 7 — Core Utilization vs Number of Users\n(Measured vs MVA vs Simulation)")
 ax.set_ylim(0, 115)
-ax.set_title("Graph 7 — Average Core Utilization vs Number of Users")
 ax.legend()
 save("graph07_core_util")
 
@@ -360,6 +383,184 @@ plt.savefig("graphs/graph00_summary_dashboard.png", bbox_inches="tight")
 plt.close()
 print("  Saved: graphs/graph00_summary_dashboard.png")
 
+# =============================================================
+# GRAPH 13 — M* Saturation Point (Asymptotic Bound Analysis)
+#
+#  M* = (Z + D) / D  where Z = think time mean, D = service demand
+#
+#  Shows two asymptotes:
+#    Lower bound on X:  X_upper(N) = min(N/(Z+D),  1/D)
+#    Upper bound on RT: RT_lower(N) = max(D,  N*D - Z)   [optional]
+#
+#  The crossing of the two throughput asymptotes is M*.
+#  Actual MVA and simulation curves are overlaid to show
+#  how closely the real system follows the theoretical prediction.
+# =============================================================
+
+D  = 0.031    # service demand (s)  — from Utilisation Law
+Z  = 4.0      # think time mean (s) — from Little's Law
+M_star = (Z + D) / D   # = 130.03 for this system
+
+N_range = np.arange(1, 170)
+
+# Asymptotic bound: throughput upper bound = min(N/(Z+D), 1/D)
+X_think_bound   = N_range / (Z + D)      # think-time asymptote (linear)
+X_service_bound = np.full_like(N_range, 1.0 / D, dtype=float)  # service asymptote (flat)
+X_aba           = np.minimum(X_think_bound, X_service_bound)    # ABA prediction
+
+fig, ax = plt.subplots(figsize=(10, 5))
+
+# ABA asymptotes
+ax.plot(N_range, X_think_bound,   ":",  color="#aaaaaa", linewidth=1.5,
+        label=f"Think-time asymptote  X = N/(Z+D)")
+ax.plot(N_range, X_service_bound, "--", color="#aaaaaa", linewidth=1.5,
+        label=f"Service asymptote  X = 1/D = {1/D:.1f} req/s")
+ax.plot(N_range, X_aba,           "-",  color="#cccccc", linewidth=2.0,
+        label="ABA bound (min of both)", zorder=1)
+
+# MVA throughput
+ax.plot(N_comp, comp["mva_x"],    "s--", color=COLORS["mva"],      label="MVA model",        zorder=3)
+
+# Measured throughput
+ax.plot(N_comp, comp["measured_x"], "^-", color=COLORS["measured"], label="Measured (Assgn 1)", zorder=4)
+
+# Simulation throughput
+ax.plot(N_comp, comp["sim_x"],    "o-",  color=COLORS["sim"],      label="Simulation",       zorder=5)
+
+# M* vertical line
+ax.axvline(M_star, color="#e74c3c", linewidth=2, linestyle="-.",
+           label=f"M* = {M_star:.0f} users  (saturation point)")
+
+# Annotate M*
+ax.annotate(f"M* ≈ {M_star:.0f}",
+            xy=(M_star, 1/D * 0.5),
+            xytext=(M_star + 8, 1/D * 0.45),
+            fontsize=10, color="#e74c3c",
+            arrowprops=dict(arrowstyle="->", color="#e74c3c", lw=1.2))
+
+ax.set_xlabel("Number of Users (N)")
+ax.set_ylabel("Throughput (req/sec)")
+ax.set_title(f"Graph 13 — M* Saturation Point (Asymptotic Bound Analysis)\n"
+             f"M* = (Z+D)/D = ({Z}+{D})/{D} = {M_star:.0f} users  |  "
+             f"D={D}s  Z={Z}s  X_max={1/D:.1f} req/s")
+ax.set_xlim(0, 170)
+ax.set_ylim(0, 40)
+ax.legend(fontsize=9)
+save("graph13_mstar_aba")
+
+# =============================================================
+# GRAPH 14 — Utilization vs Throughput  (3-way)
+#
+#  Parametric plot: N is the hidden parameter along each curve.
+#  X-axis = throughput,  Y-axis = utilization.
+#  Utilisation Law predicts a straight line U = X * D.
+#  All three series should lie on (or near) this line.
+#  Any deviation from linearity reveals measurement or
+#  modelling artefacts (OS overhead, badput, etc.)
+# =============================================================
+
+# Measured utilization: U = X_measured * D
+meas_util_pct = comp["measured_x"] * D * 100
+
+# MVA utilization: already stored
+mva_util_pct_col = comp["mva_util_pct"]
+
+# Simulation utilization mapped to comp users
+sim_util_for_comp = []
+for n in comp["users"]:
+    row = sim[sim["users"] == n]["core_util_pct"]
+    sim_util_for_comp.append(row.values[0] if len(row) > 0 else float("nan"))
+
+# Theoretical straight line  U = X * D
+x_line = np.linspace(0, 35, 200)
+u_line = x_line * D * 100   # Utilisation Law
+
+fig, ax = plt.subplots(figsize=(9, 5))
+
+ax.plot(x_line, u_line, ":", color="#aaaaaa", linewidth=1.5,
+        label=f"Utilisation Law  U = X × D  (D={D}s)")
+ax.axhline(100, color="red", linestyle="--", linewidth=1.2,
+           label="Saturation (U = 100%)")
+
+ax.plot(comp["measured_x"], meas_util_pct,    "^-",  color=COLORS["measured"],
+        label="Measured (U = X × D)")
+ax.plot(comp["mva_x"],      mva_util_pct_col, "s--", color=COLORS["mva"],
+        label="MVA model")
+ax.plot(comp["sim_x"],      sim_util_for_comp, "o-", color=COLORS["sim"],
+        label="Simulation")
+
+# Annotate saturation knee
+ax.annotate("Saturation knee\n≈ 32 req/s",
+            xy=(32, 100), xytext=(20, 108),
+            fontsize=9, color="red",
+            arrowprops=dict(arrowstyle="->", color="red", lw=1.0))
+
+ax.set_xlabel("Throughput (req/sec)")
+ax.set_ylabel("Core Utilization (%)")
+ax.set_title("Graph 14 — Utilization vs Throughput\n"
+             "(Measured vs MVA vs Simulation) — validates U = X × D")
+ax.set_xlim(0, 36)
+ax.set_ylim(0, 115)
+ax.legend(fontsize=9)
+save("graph14_util_vs_throughput")
+
+# =============================================================
+# GRAPH 15 — Response Time vs Throughput  (3-way)
+#
+#  Parametric plot: N is the hidden parameter along each curve.
+#  X-axis = throughput,  Y-axis = response time (ms).
+#  Classic "hockey stick": RT flat at low X, then explodes
+#  as X approaches 1/D (the service asymptote).
+#  This is the most powerful single graph in the set —
+#  it shows why you cannot push throughput above 1/D no
+#  matter how many users you add.
+# =============================================================
+
+fig, ax = plt.subplots(figsize=(9, 5))
+
+ax.axvline(1/D, color="red", linestyle="--", linewidth=1.2,
+           label=f"Max throughput  1/D = {1/D:.1f} req/s")
+
+ax.plot(comp["measured_x"], comp["measured_rt_ms"], "^-",
+        color=COLORS["measured"], label="Measured (Assgn 1)")
+ax.plot(comp["mva_x"],      comp["mva_rt_ms"],      "s--",
+        color=COLORS["mva"],      label="MVA model")
+ax.plot(comp["sim_x"],      comp["sim_rt_ms"],       "o-",
+        color=COLORS["sim"],      label="Simulation (mean)")
+
+# Shade CI band along simulation curve (use rt_lo/hi from results.csv)
+# Map sim rt bounds to the sim_x values in comp
+sim_x_for_comp  = comp["sim_x"].values
+sim_lo_for_comp = []
+sim_hi_for_comp = []
+for n in comp["users"]:
+    row_lo = sim[sim["users"] == n]["rt_lo_ms"]
+    row_hi = sim[sim["users"] == n]["rt_hi_ms"]
+    sim_lo_for_comp.append(row_lo.values[0] if len(row_lo) > 0 else float("nan"))
+    sim_hi_for_comp.append(row_hi.values[0] if len(row_hi) > 0 else float("nan"))
+
+ax.fill_between(sim_x_for_comp, sim_lo_for_comp, sim_hi_for_comp,
+                alpha=0.15, color=COLORS["sim"], label="Simulation 95% CI")
+
+# Annotate the hockey-stick knee
+knee_x = comp["sim_x"].max() * 0.9
+knee_y = comp["sim_rt_ms"][comp["sim_x"] == comp["sim_x"].max()].values
+if len(knee_y):
+    ax.annotate("RT explodes\nnear X_max",
+                xy=(comp["sim_x"].max(), comp["sim_rt_ms"].iloc[-1]),
+                xytext=(comp["sim_x"].max() - 8, comp["sim_rt_ms"].iloc[-1] * 0.6),
+                fontsize=9, color=COLORS["sim"],
+                arrowprops=dict(arrowstyle="->", color=COLORS["sim"], lw=1.0))
+
+ax.set_xlabel("Throughput (req/sec)")
+ax.set_ylabel("Avg Response Time (ms)")
+ax.set_title("Graph 15 — Response Time vs Throughput\n"
+             "(Measured vs MVA vs Simulation) — the hockey-stick curve")
+ax.set_xlim(0, 36)
+ax.legend(fontsize=9)
+save("graph15_rt_vs_throughput")
+
+
 print("\n✅ All graphs saved to ./graphs/")
 print("   graph00 = summary dashboard")
 print("   graph01 = RT 3-way comparison")
@@ -368,9 +569,12 @@ print("   graph03 = Goodput")
 print("   graph04 = Badput")
 print("   graph05 = Stacked Goodput+Badput")
 print("   graph06 = Drop Rate")
-print("   graph07 = Core Utilization")
+print("   graph07 = Core Utilization (3-way)")
 print("   graph08 = RT with CI bands")
 print("   graph09 = Service Distribution")
 print("   graph10 = Core Count What-If")
 print("   graph11 = Timeout Sensitivity")
 print("   graph12 = Warmup / Welch's plot")
+print("   graph13 = M* saturation point (ABA)")
+print("   graph14 = Utilization vs Throughput (3-way)")
+print("   graph15 = Response Time vs Throughput (3-way)")

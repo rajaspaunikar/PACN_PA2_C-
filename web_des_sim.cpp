@@ -162,6 +162,10 @@ struct SimParams {
 
     unsigned  seed              = 42;
     bool      verbose           = false;
+
+    // Welch trace mode: record running-average RT on every completion
+    // so Graph 12 uses real simulation data instead of a synthetic curve.
+    bool      welch_trace       = false;
 };
 
 // ============================================================
@@ -226,8 +230,20 @@ class Simulator {
     double current_time    = 0.0;
     int    next_req_id     = 0;
 
+    // Welch trace: (sim_time, running_avg_rt_ms) on every REQUEST_COMPLETE
+    // from t=0 (no warmup skip). Only populated when P.welch_trace == true.
+    struct WelchPoint { double time; double running_avg_ms; };
+    std::vector<WelchPoint> welch_log;
+
+    // accumulators for welch running average (all completions, no warmup skip)
+    double welch_sum   = 0.0;
+    int    welch_count = 0;
+
 public:
     Stats  stats;
+
+    // Access welch log after run()
+    const std::vector<WelchPoint>& getWelchLog() const { return welch_log; }
 
     explicit Simulator(SimParams p, unsigned seed_offset = 0)
         : P(p), rng(p.seed + seed_offset)
@@ -423,6 +439,15 @@ public:
             stats.response_times.push_back(rt);
             if (late) stats.num_badput++;
             else      stats.num_goodput++;
+        }
+
+        // Welch trace: record running average on EVERY completion (no warmup gate)
+        // so the transient period is visible in the graph.
+        if (P.welch_trace) {
+            welch_sum   += rt * 1000.0;   // convert to ms
+            welch_count += 1;
+            double running_avg = welch_sum / welch_count;
+            welch_log.push_back({current_time, running_avg});
         }
 
         // User starts thinking again
@@ -979,6 +1004,49 @@ int main(int argc, char* argv[]) {
     std::cout << "\nComparison table written to results_comparison.csv\n";
     if (using_synthetic)
         std::cout << "[REMINDER] Replace synthetic measured data with real Assignment 1 data!\n";
+
+    // ============================================================
+    // Welch trace — run one long single pass to produce welch_trace.csv
+    // ============================================================
+    //
+    //  Configuration for the Welch run:
+    //   - N = 100 users  (representative loaded point, ~80% utilisation)
+    //   - 1 core         (same as baseline)
+    //   - sim_duration = 4000 s total (long enough to show transient clearly)
+    //   - warmup_duration = 0  (we want to record FROM t=0 including transient)
+    //   - welch_trace = true  (turns on per-completion logging)
+    //
+    //  The resulting CSV has columns: time, running_avg_rt_ms
+    //  It is read directly by plot_graphs.py graph 12.
+    // ============================================================
+
+    std::cout << "\n================================================\n";
+    std::cout << " Generating Welch trace (N=100, 4000s run)...\n";
+    std::cout << "================================================\n";
+
+    {
+        SimParams pw = base;
+        pw.num_users       = 100;
+        pw.sim_duration    = 4000.0;
+        pw.warmup_duration = 0.0;   // record from t=0 to capture transient
+        pw.welch_trace     = true;
+        pw.verbose         = false;
+
+        Simulator wsim(pw, 0u);
+        wsim.run();
+
+        const auto& wlog = wsim.getWelchLog();
+        std::ofstream wcsv("welch_trace.csv");
+        wcsv << "time,running_avg_rt_ms\n";
+        for (const auto& pt : wlog)
+            wcsv << std::fixed << std::setprecision(4)
+                 << pt.time << "," << pt.running_avg_ms << "\n";
+        wcsv.close();
+
+        std::cout << " Written welch_trace.csv  ("
+                  << wlog.size() << " data points)\n";
+        std::cout << " Warmup cutoff shown at t=1000s in graph 12\n";
+    }
 
     // ------ What-If: vary number of cores -----------------------
     std::cout << "\n================================================\n";
